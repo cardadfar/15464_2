@@ -27,7 +27,9 @@
 			import { OrbitControls } from './modules/OrbitControls.js';
 
 			import { generateGridCloth,
-					 getForce } from './visualization.js';
+					 getForce,
+					 integrate,
+					 updateClothParams } from './visualization.js';
 
 
 			var container, stats;
@@ -35,6 +37,22 @@
 			var frameNumber = 0;
 
 			var geometry = new THREE.BoxBufferGeometry( 20, 20, 20 );
+
+			var params = {
+				ks: 1,
+				kd: 0.5,
+				dt: 0.1,
+				l0: 50,
+				pause: true,
+				integrationType: 0,
+				integrator: "Forward Euler",
+				forward_euler: function() { },
+				semi_implicit: function() { },
+				verlet: function() { },
+				leapfrog: function() { },
+				nodeVisible: true,
+				wind: 0.1
+			};
 
 
 			init();
@@ -87,8 +105,30 @@
 				stats = new Stats();
 				container.appendChild( stats.dom );
 
-				var gui = new GUI();
 
+
+				var size = 500;
+				var N = 30;
+				generateGridCloth(scene, size, size, N, N);
+
+				params.l0 = size/N;
+
+				var gui = new GUI();
+				
+				gui.add( params, 'ks', 0, 10 ).onChange( function () { updateClothParams(params) } );
+				gui.add( params, 'kd', 0, 10 ).onChange( function () { updateClothParams(params) } );
+				gui.add( params, 'dt', 0, 0.25 ).onChange( function () { updateClothParams(params) } );
+				gui.add( params, 'l0', 0, 100 ).onChange( function () { updateClothParams(params) } );
+				gui.add( params, 'pause').onChange( function () { updateClothParams(params) } );
+				gui.add( params, 'nodeVisible').onChange( function () { updateClothParams(params) } );
+				gui.add( params, 'wind', 0.0, 50.0).onChange( function () { updateClothParams(params) } );
+				gui.add( params, 'integrator').listen();
+				var integrate = gui.addFolder('Integration Type');
+				integrate.add( params, 'forward_euler' ).onChange( function () { params.integrationType = 0; updateClothParams(params); params.integrator = "Forward Euler"; } );
+				integrate.add( params, 'semi_implicit' ).onChange( function () { params.integrationType = 1; updateClothParams(params); params.integrator = "Semi Implicit Euler"; } );
+				integrate.add( params, 'verlet' ).onChange( function ()        { params.integrationType = 2; updateClothParams(params); params.integrator = "Verlet"; } );
+				integrate.add( params, 'leapfrog' ).onChange( function ()      { params.integrationType = 3; updateClothParams(params); params.integrator = "Leapfrog"; } );
+				integrate.open();
 				gui.open();
 
 				// Controls
@@ -96,17 +136,17 @@
 				controls.damping = 0.2;
 				controls.addEventListener( 'change', render );
 
-				generateGridCloth(scene, 500, 500, 10, 10);
-
 			}
 
 			function animate() {
 				frameNumber++;
-				//if(frameNumber == 1)
-				getForce();
+				if(!params.pause) {
+					getForce();
+					integrate();
+				}
 				requestAnimationFrame( animate );
 				render();
-				stats.update();
+				stats.update();	
 
 			}
 
